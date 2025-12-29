@@ -11,7 +11,7 @@ class Program
     static bool IsAlbumLink(string href)
     {
         if (href == null) return false;
-        return href.Contains("pfphoto") || href.Contains("zbon") || href.Contains("kshf");
+        return href.Contains("pfoto") || href.Contains("bonus") || href.Contains("kshf");
     }
 
     static HttpClient CreateHttpClientWithCookies()
@@ -28,17 +28,7 @@ class Program
     static async Task Main()
     {
         List<string> albumLinks = new List<string>();
-/*
-        // 1. Create HttpClient with cookie support
-        var handler = new HttpClientHandler
-        {
-            UseCookies = true,
-            CookieContainer = new CookieContainer(),
-            AllowAutoRedirect = true,
-
-        };
-*/
-        //using var client = new HttpClient(handler);
+    
         using var client = CreateHttpClientWithCookies();
 
         // 2. Login POST request
