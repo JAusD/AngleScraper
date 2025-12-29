@@ -5,13 +5,40 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using AngleSharp;
 using AngleSharp.Dom;
-
+// <a href="../fotos1304/bu1304x002.jpg"><img src="../fotos1304/tn_bu1304x002.jpg" hspace="0" vspace="0" border="0" width="116" height="175"></a>
+// <a href="bonus015/zbon15x001.jpg"><img src="bonus015/tn_zbon15x001.jpg" hspace="0" vspace="0" border="0" width="175" height="131"></a>
 class Program
 {
     static bool IsAlbumLink(string href)
     {
+        //Console.WriteLine(href);
+
         if (href == null) return false;
         return href.Contains("pfoto") || href.Contains("bonus") || href.Contains("kshf");
+    }
+
+    static bool IsFotoLink(string href)
+    {
+        //Console.WriteLine(href);
+
+        if (href == null) return false;
+        return href.Contains("jpg") && (href.Contains("bonus") || href.Contains("fotos"));
+    }
+
+    static async Task DownloadAndSaveFoto(HttpClient client,  string href, string baseUrl)
+    {
+        var fotoUrl = baseUrl +href.Replace("../", "");
+
+        //Console.WriteLine("Downloading: " + fotoUrl);
+
+        var fotoResponse = await client.GetAsync(fotoUrl);
+        var fotoBytes = await fotoResponse.Content.ReadAsByteArrayAsync();
+        var fileName = href.Substring(href.LastIndexOf('/') + 1);
+        var downloadPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads/AngelScraper/";
+        System.IO.Directory.CreateDirectory(downloadPath);
+        fileName = downloadPath + fileName;
+        await System.IO.File.WriteAllBytesAsync(fileName, fotoBytes);
+        // Console.WriteLine("Saved: " + fileName);
     }
 
     static HttpClient CreateHttpClientWithCookies()
@@ -28,11 +55,15 @@ class Program
     static async Task Main()
     {
         List<string> albumLinks = new List<string>();
-    
+        List<string> fotoLinks = new List<string>();
+
         using var client = CreateHttpClientWithCookies();
 
         // 2. Login POST request
         var loginUrl = "https://www.southern-charms3.com/auth.form";
+        var memberBaseUrl = "https://www.southern-charms3.com/bustytina/private/";
+        var mainUrl = memberBaseUrl + "members.htm";
+        
         var loginData = new Dictionary<string, string>
         {
             { "uid", "jomannx17" },
@@ -47,7 +78,6 @@ class Program
         Console.WriteLine("Login status: " + loginResponse.StatusCode);
 
         // 3. Fetch main page (authenticated)
-        var mainUrl = "https://www.southern-charms3.com/bustytina/private/members.htm";
         var mainResponse = await client.GetAsync(mainUrl);
         var mainHtml = await mainResponse.Content.ReadAsStringAsync();
 
@@ -74,8 +104,35 @@ class Program
             
             albumLinks.Add(href);
 
-            Console.WriteLine(href);
         }
+
+        foreach (var albumLink in albumLinks)
+        {   var albumUrl = memberBaseUrl + albumLink;
+            var albumResponse = await client.GetAsync(albumUrl);
+            var albumHtml = await albumResponse.Content.ReadAsStringAsync();
+
+            // 4. Parse HTML with AngleSharp
+            var album = await context.OpenAsync(req => req.Content(albumHtml));
+
+            // Example: extract all links with a specific CSS selector
+            //var links = document.QuerySelectorAll("a.some-class");
+            var imageLinks = album.QuerySelectorAll("a[href]");
+
+            foreach (var link in imageLinks)
+            {
+                var href = link.GetAttribute("href");
+
+                if (href == null)
+                    continue;
+
+                if (!IsFotoLink(href))
+                    continue;
+                
+                fotoLinks.Add(href);
+                await DownloadAndSaveFoto(client, href, memberBaseUrl);   
+            }          
+        }
+
 
         Console.WriteLine($"Found {links.Length} links.");
 
