@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AngelScraper", "AngelScraper.csproj", "{FC6E49F6-4EB1-5013-5341-0698A8D5CD6C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FC6E49F6-4EB1-5013-5341-0698A8D5CD6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC6E49F6-4EB1-5013-5341-0698A8D5CD6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC6E49F6-4EB1-5013-5341-0698A8D5CD6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC6E49F6-4EB1-5013-5341-0698A8D5CD6C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5E88D127-FBF6-45C0-A2B9-B39FAD660666}
+	EndGlobalSection
+EndGlobal
