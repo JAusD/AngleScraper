@@ -23,7 +23,7 @@ class Program
         return href.Contains("jpg") && (href.Contains("bonus") || href.Contains("fotos"));
     }
 
-    static async Task DownloadAndSaveFoto(HttpClient client,  string href, string baseUrl)
+    static async Task DownloadAndSaveFoto(HttpClient client,  string href, string baseUrl, string album, string modelname)
     {
         var fotoUrl = baseUrl +href.Replace("../", "");
 
@@ -34,7 +34,7 @@ class Program
         var fileName = href.Substring(href.LastIndexOf('/') + 1);
         // can the download path implemented as a "global" property of the main-class?
 
-        var downloadPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads/AngelScraper/";
+        var downloadPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads/AngelScraper/" + modelname + "/" + album + "/";
         System.IO.Directory.CreateDirectory(downloadPath);
         fileName = downloadPath + fileName;
         await System.IO.File.WriteAllBytesAsync(fileName, fotoBytes);
@@ -111,7 +111,10 @@ class Program
         }
 
         foreach (var albumLink in albumLinks)
-        {   var albumUrl = memberBaseUrl + albumLink;
+        {   
+            var albumName = albumLink.Replace(".htm", "");
+
+            var albumUrl = memberBaseUrl + albumLink;        
             var albumResponse = await client.GetAsync(albumUrl);
             var albumHtml = await albumResponse.Content.ReadAsStringAsync();
 
@@ -132,8 +135,10 @@ class Program
                 if (!IsFotoLink(href))
                     continue;
                 
-                fotoLinks.Add(href);
-                await DownloadAndSaveFoto(client, href, memberBaseUrl);   
+                //fotoLinks.Add(href);
+                //extract the name of the album to create a subfolder?  
+                
+                await DownloadAndSaveFoto(client, href, memberBaseUrl, albumName, modelname);   
             }          
         }
 
