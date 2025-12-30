@@ -12,7 +12,6 @@ class Program
     static bool IsAlbumLink(string href)
     {
         //Console.WriteLine(href);
-
         if (href == null) return false;
         return href.Contains("pfoto") || href.Contains("bonus") || href.Contains("kshf");
     }
@@ -20,7 +19,6 @@ class Program
     static bool IsFotoLink(string href)
     {
         //Console.WriteLine(href);
-
         if (href == null) return false;
         return href.Contains("jpg") && (href.Contains("bonus") || href.Contains("fotos"));
     }
@@ -34,10 +32,13 @@ class Program
         var fotoResponse = await client.GetAsync(fotoUrl);
         var fotoBytes = await fotoResponse.Content.ReadAsByteArrayAsync();
         var fileName = href.Substring(href.LastIndexOf('/') + 1);
+        // can the download path implemented as a "global" property of the main-class?
+
         var downloadPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads/AngelScraper/";
         System.IO.Directory.CreateDirectory(downloadPath);
         fileName = downloadPath + fileName;
         await System.IO.File.WriteAllBytesAsync(fileName, fotoBytes);
+        
         // Console.WriteLine("Saved: " + fileName);
     }
 
@@ -48,20 +49,25 @@ class Program
             UseCookies = true,
             CookieContainer = new CookieContainer(),
             AllowAutoRedirect = true,
+            
         };
 
         return new HttpClient(handler);
     }
     static async Task Main()
     {
+        
         List<string> albumLinks = new List<string>();
         List<string> fotoLinks = new List<string>();
 
         using var client = CreateHttpClientWithCookies();
 
         // 2. Login POST request
-        var loginUrl = "https://www.southern-charms3.com/auth.form";
-        var memberBaseUrl = "https://www.southern-charms3.com/bustytina/private/";
+        var baseUrl = "https://www.southern-charms3.com/";
+        var modelname = "bustytina";
+
+        var loginUrl = baseUrl + "auth.form";
+        var memberBaseUrl = baseUrl + modelname + "/private/";
         var mainUrl = memberBaseUrl + "members.htm";
         
         var loginData = new Dictionary<string, string>
@@ -80,8 +86,6 @@ class Program
         // 3. Fetch main page (authenticated)
         var mainResponse = await client.GetAsync(mainUrl);
         var mainHtml = await mainResponse.Content.ReadAsStringAsync();
-
-        Console.WriteLine("Main page loaded.");
 
         // 4. Parse HTML with AngleSharp
         var config = Configuration.Default;
