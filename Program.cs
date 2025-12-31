@@ -142,31 +142,6 @@ class Program
             }          
         }
 
-
-        Console.WriteLine($"Found {links.Length} links.");
-
-        // 5. Perform subsequent requests based on parsed links
-        foreach (var link in links)
-        {
-            var href = link.GetAttribute("href");
-            if (href == null)
-                continue;
-
-
-            var absoluteUrl = new Uri(new Uri(mainUrl), href).ToString();
-            Console.WriteLine("Fetching: " + absoluteUrl);
-
-            var subResponse = await client.GetAsync(absoluteUrl);
-            var subHtml = await subResponse.Content.ReadAsStringAsync();
-
-            // Parse sub-page if needed
-            var subDoc = await context.OpenAsync(req => req.Content(subHtml));
-
-            // Example: extract a title
-            var title = subDoc.QuerySelector("h1")?.TextContent?.Trim();
-            Console.WriteLine("Title: " + title);
-        }
-
         Console.WriteLine("Done.");
     }
 }
