@@ -7,6 +7,7 @@ using AngleSharp;
 using AngleSharp.Dom;
 // <a href="../fotos1304/bu1304x002.jpg"><img src="../fotos1304/tn_bu1304x002.jpg" hspace="0" vspace="0" border="0" width="116" height="175"></a>
 // <a href="bonus015/zbon15x001.jpg"><img src="bonus015/tn_zbon15x001.jpg" hspace="0" vspace="0" border="0" width="175" height="131"></a>
+
 class Program
 {
     static bool IsAlbumLink(string href)
@@ -23,9 +24,9 @@ class Program
         return href.Contains("jpg") && (href.Contains("bonus") || href.Contains("fotos"));
     }
 
-    static async Task DownloadAndSaveFoto(HttpClient client,  string href, string baseUrl, string album, string modelname)
+    static async Task DownloadAndSaveFoto(HttpClient client,  string href, string album, Config config)
     {
-        var fotoUrl = baseUrl +href.Replace("../", "");
+        var fotoUrl = config.MemberBaseUrl +href.Replace("../", "");
 
         //Console.WriteLine("Downloading: " + fotoUrl);
 
@@ -34,7 +35,7 @@ class Program
         var fileName = href.Substring(href.LastIndexOf('/') + 1);
         // can the download path implemented as a "global" property of the main-class?
 
-        var downloadPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads/AngelScraper/" + modelname + "/" + album + "/";
+        var downloadPath = config.DownloadLocation + config.ModelName + "/" + album + "/";
         System.IO.Directory.CreateDirectory(downloadPath);
         fileName = downloadPath + fileName;
         await System.IO.File.WriteAllBytesAsync(fileName, fotoBytes);
@@ -54,42 +55,70 @@ class Program
 
         return new HttpClient(handler);
     }
+    static List<string> albumLinks = new List<string>();
+    static List<string> fotoLinks = new List<string>();
     static async Task Main()
     {
-        
-        List<string> albumLinks = new List<string>();
-        List<string> fotoLinks = new List<string>();
 
-        using var client = CreateHttpClientWithCookies();
-
-        // 2. Login POST request
-        var baseUrl = "https://www.southern-charms3.com/";
-        var modelname = "bustytina";
-
-        var loginUrl = baseUrl + "auth.form";
-        var memberBaseUrl = baseUrl + modelname + "/private/";
-        var mainUrl = memberBaseUrl + "members.htm";
-        
-        var loginData = new Dictionary<string, string>
+        var appConfig = new Config
         {
-            { "uid", "jomannx17" },
-            { "pwd", "20postmannx17" },
-            { "rlm", "Bustytina's Private Page" },
-            { "for", "https%3a%2f%2fwww%2esouthern%2dcharms3%2ecom%2fbustytina%2fprivate%2fmembers%2ehtm" }
+            BaseUrl = "https://www.southern-charms.com/",
+            ModelName = "julimar",
+            Username = "jomannx17",
+            Password = "20postmannx17",
+            Realm = "",
+            RedirectUrl = "",
+            //DownloadLocation = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Downloads/AngelScraper/"
+            DownloadLocation = "/Users/jmhl/.px/AngelScraper/"
         };
+        
+        appConfig.MemberBaseUrl = appConfig.BaseUrl + appConfig.ModelName + "/private/";
+        appConfig.MemberMainUrl = appConfig.MemberBaseUrl + "members.htm";
+        appConfig.loginUrl = appConfig.BaseUrl + "auth.form";
 
-        var loginContent = new FormUrlEncodedContent(loginData);
-        var loginResponse = await client.PostAsync(loginUrl, loginContent);
+        using var client = CreateHttpClientWithCookies();        
+
+        // get the main membership site that redirects to the login page if not authenticated. 
+        // We need some form-data from the login page.
+        var redirectResponse = await client.GetAsync(appConfig.MemberMainUrl);
+        var redirectHtml = await redirectResponse.Content.ReadAsStringAsync();
+
+        // Parse HTML with AngleSharp
+        var config = Configuration.Default;
+        var context = BrowsingContext.New(config);
+        var loginForm = await context.OpenAsync(req => req.Content(redirectHtml));
+
+        var inputs = loginForm.QuerySelectorAll("input");
+
+        var formData = new Dictionary<string, string>();
+
+        foreach (var input in inputs)
+        {
+            var name = input.GetAttribute("name");
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            var value = input.GetAttribute("value") ?? "";
+            formData[name] = value;
+        }
+        formData["uid"] = appConfig.Username;
+        formData["pwd"] = appConfig.Password;
+        formData.Remove("rmb");
+        formData.Remove("img");
+
+
+        var loginContent = new FormUrlEncodedContent(formData);
+        var loginResponse = await client.PostAsync(appConfig.loginUrl, loginContent);
 
         Console.WriteLine("Login status: " + loginResponse.StatusCode);
 
         // 3. Fetch main page (authenticated)
-        var mainResponse = await client.GetAsync(mainUrl);
+        var mainResponse = await client.GetAsync(appConfig.MemberMainUrl);
         var mainHtml = await mainResponse.Content.ReadAsStringAsync();
 
         // 4. Parse HTML with AngleSharp
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
+        //var config = Configuration.Default;
+        //var context = BrowsingContext.New(config);
         var document = await context.OpenAsync(req => req.Content(mainHtml));
 
         // Example: extract all links with a specific CSS selector
@@ -114,7 +143,7 @@ class Program
         {   
             var albumName = albumLink.Replace(".htm", "");
 
-            var albumUrl = memberBaseUrl + albumLink;        
+            var albumUrl = appConfig.MemberBaseUrl + albumLink;        
             var albumResponse = await client.GetAsync(albumUrl);
             var albumHtml = await albumResponse.Content.ReadAsStringAsync();
 
@@ -138,7 +167,7 @@ class Program
                 //fotoLinks.Add(href);
                 //extract the name of the album to create a subfolder?  
                 
-                await DownloadAndSaveFoto(client, href, memberBaseUrl, albumName, modelname);   
+                await DownloadAndSaveFoto(client, href, albumName, appConfig);   
             }          
         }
 
