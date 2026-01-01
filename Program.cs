@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using AngleSharp;
 using AngleSharp.Dom;
+using Microsoft.Data.Sqlite;
 // <a href="../fotos1304/bu1304x002.jpg"><img src="../fotos1304/tn_bu1304x002.jpg" hspace="0" vspace="0" border="0" width="116" height="175"></a>
 // <a href="bonus015/zbon15x001.jpg"><img src="bonus015/tn_zbon15x001.jpg" hspace="0" vspace="0" border="0" width="175" height="131"></a>
 
@@ -76,6 +77,10 @@ class Program
         appConfig.MemberMainUrl = appConfig.MemberBaseUrl + "members.htm";
         appConfig.loginUrl = appConfig.BaseUrl + "auth.form";
 
+        var dbPath = appConfig.DownloadLocation + appConfig.ModelName + "/albums.db";
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dbPath));
+        var tracker = new AlbumTracker(dbPath);
+
         using var client = CreateHttpClientWithCookies();        
 
         // get the main membership site that redirects to the login page if not authenticated. 
@@ -143,6 +148,12 @@ class Program
         {   
             var albumName = albumLink.Replace(".htm", "");
 
+            if (tracker.IsProcessed(appConfig.ModelName, albumName))
+            {
+                Console.WriteLine($"Skipping already processed album: {albumName}");
+                continue;
+            }
+
             var albumUrl = appConfig.MemberBaseUrl + albumLink;        
             var albumResponse = await client.GetAsync(albumUrl);
             var albumHtml = await albumResponse.Content.ReadAsStringAsync();
@@ -169,6 +180,8 @@ class Program
                 
                 await DownloadAndSaveFoto(client, href, albumName, appConfig);   
             }          
+
+            tracker.MarkAsProcessed(appConfig.ModelName, albumName);
         }
 
         Console.WriteLine("Done.");
