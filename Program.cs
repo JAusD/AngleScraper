@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using AngleSharp;
 using AngleSharp.Dom;
 using Microsoft.Data.Sqlite;
+using System.Threading;
 // <a href="../fotos1304/bu1304x002.jpg"><img src="../fotos1304/tn_bu1304x002.jpg" hspace="0" vspace="0" border="0" width="116" height="175"></a>
 // <a href="bonus015/zbon15x001.jpg"><img src="bonus015/tn_zbon15x001.jpg" hspace="0" vspace="0" border="0" width="175" height="131"></a>
 
@@ -23,6 +24,49 @@ class Program
         //Console.WriteLine(href);
         if (href == null) return false;
         return href.Contains("jpg") && (href.Contains("bonus") || href.Contains("fotos"));
+    }
+    static async Task ProcessAlbumAsync(HttpClient client, string albumLink, Config appConfig, AlbumTracker tracker, SemaphoreSlim semaphore)
+    {
+        await semaphore.WaitAsync();
+        try
+        {
+            var albumName = albumLink.Replace(".htm", "");
+
+            if (tracker.IsProcessed(appConfig.ModelName, albumName))
+            {
+                Console.WriteLine($"Skipping already processed album: {albumName}");
+                return;
+            }
+
+            var albumUrl = appConfig.MemberBaseUrl + albumLink;
+            var albumResponse = await client.GetAsync(albumUrl);
+            var albumHtml = await albumResponse.Content.ReadAsStringAsync();
+
+            var config = Configuration.Default;
+            var context = BrowsingContext.New(config);
+            var album = await context.OpenAsync(req => req.Content(albumHtml));
+
+            var imageLinks = album.QuerySelectorAll("a[href]");
+
+            foreach (var link in imageLinks)
+            {
+                var href = link.GetAttribute("href");
+
+                if (href == null)
+                    continue;
+
+                if (!IsFotoLink(href))
+                    continue;
+
+                await DownloadAndSaveFoto(client, href, albumName, appConfig);
+            }
+
+            tracker.MarkAsProcessed(appConfig.ModelName, albumName);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     static async Task DownloadAndSaveFoto(HttpClient client,  string href, string album, Config config)
@@ -144,46 +188,17 @@ class Program
 
         }
 
+        var semaphore = new SemaphoreSlim(5);
+        var tasks = new List<Task>();
+
         foreach (var albumLink in albumLinks)
-        {   
-            var albumName = albumLink.Replace(".htm", "");
-
-            if (tracker.IsProcessed(appConfig.ModelName, albumName))
-            {
-                Console.WriteLine($"Skipping already processed album: {albumName}");
-                continue;
-            }
-
-            var albumUrl = appConfig.MemberBaseUrl + albumLink;        
-            var albumResponse = await client.GetAsync(albumUrl);
-            var albumHtml = await albumResponse.Content.ReadAsStringAsync();
-
-            // 4. Parse HTML with AngleSharp
-            var album = await context.OpenAsync(req => req.Content(albumHtml));
-
-            // Example: extract all links with a specific CSS selector
-            //var links = document.QuerySelectorAll("a.some-class");
-            var imageLinks = album.QuerySelectorAll("a[href]");
-
-            foreach (var link in imageLinks)
-            {
-                var href = link.GetAttribute("href");
-
-                if (href == null)
-                    continue;
-
-                if (!IsFotoLink(href))
-                    continue;
-                
-                //fotoLinks.Add(href);
-                //extract the name of the album to create a subfolder?  
-                
-                await DownloadAndSaveFoto(client, href, albumName, appConfig);   
-            }          
-
-            tracker.MarkAsProcessed(appConfig.ModelName, albumName);
+        {
+            tasks.Add(ProcessAlbumAsync(client, albumLink, appConfig, tracker, semaphore));
         }
+
+        await Task.WhenAll(tasks);
 
         Console.WriteLine("Done.");
     }
+
 }
